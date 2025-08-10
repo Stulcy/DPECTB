@@ -1,0 +1,9 @@
+{
+  "providers": {
+    "hyperliquid": {
+      "enabled": true,
+      "symbols": ["BNB", "SUI", "ETH", "SOL"],
+      "dataTypes": ["orderbook", "funding"]
+    }
+  }
+}

@@ -1,6 +1,6 @@
 {
   "name": "dpectb",
-  "module": "index.ts",
+  "module": "src/index.ts",
   "type": "module",
   "devDependencies": {
     "@types/ws": "^8.18.1",
