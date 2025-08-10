@@ -1,0 +1,15 @@
+{
+  "name": "dpectb",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/ws": "^8.18.1",
+    "bun-types": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}
