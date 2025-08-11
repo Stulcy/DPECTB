@@ -27,7 +27,6 @@ export class HyperliquidProvider implements DataProvider {
       this.ws = new WebSocket(this.url);
 
       this.ws.on("open", () => {
-        console.log("Connected to Hyperliquid WebSocket");
         resolve();
       });
 
@@ -36,9 +35,7 @@ export class HyperliquidProvider implements DataProvider {
       });
 
       this.ws.on("close", () => {
-        console.log("Hyperliquid WebSocket connection closed");
         setTimeout(() => {
-          console.log("Reconnecting to Hyperliquid ...");
           this.connect();
         }, 5000);
       });
@@ -110,7 +107,6 @@ export class HyperliquidProvider implements DataProvider {
     };
 
     this.ws!.send(JSON.stringify(subscriptionMessage));
-    console.log(`Sent subscription request for ${symbol} bbo`);
   }
 
   private async startFundingPolling(symbol: string): Promise<void> {
@@ -136,11 +132,6 @@ export class HyperliquidProvider implements DataProvider {
       this.fundingIntervals.set(symbol, interval);
     }, msUntilNextHour);
 
-    console.log(
-      `Started funding polling for ${symbol} - next update in ${Math.floor(
-        msUntilNextHour / 60000
-      )}m`
-    );
   }
 
   private handleMessage(data: WebSocket.Data): void {
@@ -153,7 +144,6 @@ export class HyperliquidProvider implements DataProvider {
         this.handleOrderbookMessage(parsed);
       }
     } catch (error) {
-      console.log(message);
     }
   }
 
@@ -202,14 +192,8 @@ export class HyperliquidProvider implements DataProvider {
         const ctx = parsed[1][symbolIndex];
         const timestamp = new Date().toLocaleString();
 
-        console.log(`\n[${timestamp}] - Funding API Call`);
         const fundingRate = parseFloat(ctx.funding || "0");
         const apy = fundingRate * 24 * 365 * 100;
-        console.log(
-          `${symbol} Funding Rate: ${ctx.funding || "N/A"} (${apy.toFixed(
-            2
-          )}% APY)`
-        );
 
         const now = new Date();
         const nextFundingTime = new Date(now);
@@ -237,7 +221,6 @@ export class HyperliquidProvider implements DataProvider {
         // Emit to data bus
         this.dataBus.emitFunding(fundingData);
       } else {
-        console.log(`${symbol} not found in response`);
       }
     } catch (error) {
       console.error("Error fetching asset context:", error);

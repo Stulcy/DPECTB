@@ -37,7 +37,6 @@ export class ProviderManager {
           await provider.subscribe(symbol, providerConfig.dataTypes);
         }
 
-        console.log(`\nStarted provider: ${providerName}`);
       } catch (error) {
         console.error(`Failed to start provider ${providerName}:`, error);
       }

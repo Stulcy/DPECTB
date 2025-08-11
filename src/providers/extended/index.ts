@@ -28,7 +28,6 @@ export class ExtendedProvider implements DataProvider {
     // Extended might need market-specific WebSocket connections
     // For now, let's just resolve without connecting to WebSocket
     // We'll connect per-symbol in subscribeToOrderbook
-    console.log("Extended provider ready (will connect per-symbol)");
     return Promise.resolve();
   }
 
@@ -44,13 +43,9 @@ export class ExtendedProvider implements DataProvider {
       this.wsConnections.set(symbol, ws);
 
       ws.on("open", () => {
-        console.log(`Extended: Connected to ${symbol} WebSocket`);
 
         // Preemptive reconnection every 14 seconds to avoid 15s timeout
         const reconnectInterval = setInterval(() => {
-          console.log(
-            `Extended: Preemptive reconnection for ${symbol} to avoid server timeout`
-          );
           this.reconnectSymbol(symbol);
         }, 14000);
         this.reconnectIntervals.set(symbol, reconnectInterval);
@@ -63,10 +58,6 @@ export class ExtendedProvider implements DataProvider {
       });
 
       ws.on("close", (code: number, reason: Buffer) => {
-        const timestamp = new Date().toLocaleTimeString();
-        console.log(
-          `[${timestamp}] Extended ${symbol} WebSocket connection closed - Code: ${code}, Reason: "${reason.toString()}"`
-        );
 
         const reconnectInterval = this.reconnectIntervals.get(symbol);
         if (reconnectInterval) {
@@ -80,9 +71,6 @@ export class ExtendedProvider implements DataProvider {
         // Only reconnect if this wasn't a planned reconnection
         if (!this.reconnectingSymbols.has(symbol)) {
           setTimeout(() => {
-            console.log(
-              `Extended: Attempting to reconnect ${symbol} after unexpected close...`
-            );
             if (this.subscriptions.has(symbol)) {
               this.connectToMarket(symbol);
             }
@@ -198,7 +186,6 @@ export class ExtendedProvider implements DataProvider {
   private async subscribeToOrderbook(symbol: string): Promise<void> {
     try {
       await this.connectToMarket(symbol);
-      console.log(`Extended: Connected to ${symbol} orderbook stream`);
     } catch (error) {
       console.error(`Failed to connect to Extended ${symbol} stream:`, error);
     }
@@ -227,16 +214,10 @@ export class ExtendedProvider implements DataProvider {
       this.fundingIntervals.set(symbol, interval);
     }, msUntilNextHour);
 
-    console.log(
-      `Started Extended funding polling for ${symbol} - next update in ${Math.floor(
-        msUntilNextHour / 60000
-      )}m`
-    );
   }
 
   private handleMessage(data: WebSocket.Data, symbol: string): void {
     const message = data.toString();
-    const timestamp = new Date().toLocaleTimeString();
 
     try {
       const parsed = JSON.parse(message);
@@ -244,16 +225,8 @@ export class ExtendedProvider implements DataProvider {
       if (parsed.data && parsed.data.b && parsed.data.a) {
         this.handleOrderbookMessage(parsed);
       } else {
-        console.log(
-          `[${timestamp}] Extended ${symbol} unknown message format:`,
-          message
-        );
       }
     } catch (error) {
-      console.log(
-        `[${timestamp}] Extended ${symbol} JSON parse error:`,
-        message
-      );
     }
   }
 
@@ -307,16 +280,10 @@ export class ExtendedProvider implements DataProvider {
         if (marketData && marketData.marketStats) {
           const timestamp = new Date().toLocaleString();
 
-          console.log(`\n[${timestamp}] - Extended Funding API Call`);
           const fundingRate = parseFloat(
             marketData.marketStats.fundingRate || "0"
           );
           const apy = fundingRate * 24 * 365 * 100;
-          console.log(
-            `${symbol} Funding Rate: ${
-              marketData.marketStats.fundingRate || "N/A"
-            } (${apy.toFixed(2)}% APY)`
-          );
 
           const now = new Date();
           const nextFundingTime = new Date(now);
@@ -331,9 +298,6 @@ export class ExtendedProvider implements DataProvider {
             (timeUntilFunding % (1000 * 60)) / 1000
           );
 
-          console.log(
-            `Funding update in ${minutesUntilFunding}m ${secondsUntilFunding}s`
-          );
 
           const fundingDataObj: FundingData = {
             symbol,
@@ -350,10 +314,8 @@ export class ExtendedProvider implements DataProvider {
           // Emit to data bus
           this.dataBus.emitFunding(fundingDataObj);
         } else {
-          console.log(`${symbol} not found in Extended markets response`);
         }
       } else {
-        console.log(`Extended API returned invalid status or no data`);
       }
     } catch (error) {
       console.error(

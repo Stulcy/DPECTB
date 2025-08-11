@@ -19,7 +19,14 @@ async function main() {
     const extendedProvider = new ExtendedProvider(manager.dataBus);
     manager.registerProvider(extendedProvider);
 
-    manager.dataBus.onOrderbook((_) => {
+    manager.dataBus.onOrderbook((_) => {});
+
+    manager.dataBus.onFunding((data) => {});
+
+    await manager.startAll();
+
+    // Print market data every 10 seconds
+    const printInterval = setInterval(() => {
       // Print entire MarketDataStore
       console.log(`\n📊 COMPLETE MARKET DATA STORE:`);
       const providers = manager.marketDataStore.getProviders();
@@ -62,14 +69,10 @@ async function main() {
       console.log(
         `└─────────────────────────────────────────────────────────────────────`
       );
-    });
-
-    manager.dataBus.onFunding((data) => {});
-
-    await manager.startAll();
+    }, 10000);
 
     process.on("SIGINT", async () => {
-      console.log("\nShutting down gracefully...");
+      clearInterval(printInterval);
       await manager.stopAll();
       process.exit(0);
     });
