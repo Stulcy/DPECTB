@@ -17,7 +17,6 @@ export class ExtendedProvider implements DataProvider {
   private subscriptions: Map<string, Set<DataType>> = new Map();
   private fundingCache: Map<string, FundingData> = new Map();
   private fundingIntervals: Map<string, NodeJS.Timeout> = new Map();
-  private pingIntervals: Map<string, NodeJS.Timeout> = new Map();
   private reconnectIntervals: Map<string, NodeJS.Timeout> = new Map();
   private reconnectingSymbols: Set<string> = new Set();
 
@@ -47,24 +46,11 @@ export class ExtendedProvider implements DataProvider {
       ws.on("open", () => {
         console.log(`Extended: Connected to ${symbol} WebSocket`);
 
-        // Send initial ping to test server response
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.ping();
-          console.log(`Extended: Sent initial ping to ${symbol} server`);
-        }
-
-        // Start periodic ping every 5 seconds for this symbol
-        const pingInterval = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.ping();
-            console.log(`Extended: Sent periodic ping to ${symbol} server`);
-          }
-        }, 5000);
-        this.pingIntervals.set(symbol, pingInterval);
-
         // Preemptive reconnection every 14 seconds to avoid 15s timeout
         const reconnectInterval = setInterval(() => {
-          console.log(`Extended: Preemptive reconnection for ${symbol} to avoid server timeout`);
+          console.log(
+            `Extended: Preemptive reconnection for ${symbol} to avoid server timeout`
+          );
           this.reconnectSymbol(symbol);
         }, 14000);
         this.reconnectIntervals.set(symbol, reconnectInterval);
@@ -76,34 +62,12 @@ export class ExtendedProvider implements DataProvider {
         this.handleMessage(data, symbol);
       });
 
-      ws.on("ping", (data: Buffer) => {
-        const timestamp = new Date().toLocaleTimeString();
-        console.log(
-          `[${timestamp}] Extended ${symbol}: Received ping, sending pong frame`,
-          data.length ? `(${data.length} bytes)` : "(empty)"
-        );
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.pong(data);
-          console.log(`[${timestamp}] Extended ${symbol}: Sent pong frame with same data`);
-        }
-      });
-
-      ws.on("pong", (data: Buffer) => {
-        console.log(`Extended ${symbol}: Received pong response`);
-      });
-
       ws.on("close", (code: number, reason: Buffer) => {
         const timestamp = new Date().toLocaleTimeString();
         console.log(
           `[${timestamp}] Extended ${symbol} WebSocket connection closed - Code: ${code}, Reason: "${reason.toString()}"`
         );
 
-        // Clear intervals for this symbol
-        const pingInterval = this.pingIntervals.get(symbol);
-        if (pingInterval) {
-          clearInterval(pingInterval);
-          this.pingIntervals.delete(symbol);
-        }
         const reconnectInterval = this.reconnectIntervals.get(symbol);
         if (reconnectInterval) {
           clearInterval(reconnectInterval);
@@ -116,7 +80,9 @@ export class ExtendedProvider implements DataProvider {
         // Only reconnect if this wasn't a planned reconnection
         if (!this.reconnectingSymbols.has(symbol)) {
           setTimeout(() => {
-            console.log(`Extended: Attempting to reconnect ${symbol} after unexpected close...`);
+            console.log(
+              `Extended: Attempting to reconnect ${symbol} after unexpected close...`
+            );
             if (this.subscriptions.has(symbol)) {
               this.connectToMarket(symbol);
             }
@@ -135,13 +101,7 @@ export class ExtendedProvider implements DataProvider {
 
   private reconnectSymbol(symbol: string): void {
     this.reconnectingSymbols.add(symbol);
-    
-    // Clear existing intervals for this symbol
-    const pingInterval = this.pingIntervals.get(symbol);
-    if (pingInterval) {
-      clearInterval(pingInterval);
-      this.pingIntervals.delete(symbol);
-    }
+
     const reconnectInterval = this.reconnectIntervals.get(symbol);
     if (reconnectInterval) {
       clearInterval(reconnectInterval);
@@ -167,12 +127,6 @@ export class ExtendedProvider implements DataProvider {
       clearInterval(interval);
     }
     this.fundingIntervals.clear();
-
-    // Clear all keep-alive intervals
-    for (const interval of this.pingIntervals.values()) {
-      clearInterval(interval);
-    }
-    this.pingIntervals.clear();
 
     for (const interval of this.reconnectIntervals.values()) {
       clearInterval(interval);
@@ -209,13 +163,6 @@ export class ExtendedProvider implements DataProvider {
     if (fundingInterval) {
       clearInterval(fundingInterval);
       this.fundingIntervals.delete(symbol);
-    }
-
-    // Clear keep-alive intervals for this symbol
-    const pingInterval = this.pingIntervals.get(symbol);
-    if (pingInterval) {
-      clearInterval(pingInterval);
-      this.pingIntervals.delete(symbol);
     }
 
     const reconnectInterval = this.reconnectIntervals.get(symbol);
@@ -291,35 +238,22 @@ export class ExtendedProvider implements DataProvider {
     const message = data.toString();
     const timestamp = new Date().toLocaleTimeString();
 
-    console.log(`[${timestamp}] Extended ${symbol}: Received message`);
-
-    // Check if this is a ping message that needs a pong response
-    if (message.startsWith("[ping ") && message.endsWith(" ping]")) {
-      console.log(
-        `Extended ${symbol}: Received ping message (not ping frame), sending pong response`
-      );
-      const pongMessage = message
-        .replace("[ping ", "[pong ")
-        .replace(" ping]", " pong]");
-      console.log(`Extended ${symbol}: Sending pong message:`, pongMessage);
-      const ws = this.wsConnections.get(symbol);
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(pongMessage);
-      }
-      return;
-    }
-
     try {
       const parsed = JSON.parse(message);
 
       if (parsed.data && parsed.data.b && parsed.data.a) {
-        console.log(`[${timestamp}] Extended ${symbol}: Processing orderbook data`);
         this.handleOrderbookMessage(parsed);
       } else {
-        console.log(`[${timestamp}] Extended ${symbol} unknown message format:`, message);
+        console.log(
+          `[${timestamp}] Extended ${symbol} unknown message format:`,
+          message
+        );
       }
     } catch (error) {
-      console.log(`[${timestamp}] Extended ${symbol} JSON parse error:`, message);
+      console.log(
+        `[${timestamp}] Extended ${symbol} JSON parse error:`,
+        message
+      );
     }
   }
 
