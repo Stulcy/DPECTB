@@ -25,11 +25,6 @@ A real-time market data aggregator that monitors orderbook and funding rate data
 ### Installation
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd DPECTB
-
-# Install dependencies
 bun install
 ```
 
