@@ -3,6 +3,8 @@ import WebSocket from "ws";
 class ExtendedWebSocketTest {
   private ws: WebSocket | null = null;
   private pingInterval: NodeJS.Timeout | null = null;
+  private reconnectInterval: NodeJS.Timeout | null = null;
+  private isReconnecting: boolean = false;
   private readonly wsUrl =
     "wss://api.extended.exchange/stream.extended.exchange/v1/orderbooks/BTC-USDC?depth=1";
 
@@ -30,6 +32,12 @@ class ExtendedWebSocketTest {
           console.log("Sent periodic ping to server");
         }
       }, 5000);
+
+      // Preemptive reconnection every 14 seconds to avoid 15s timeout
+      this.reconnectInterval = setInterval(() => {
+        console.log("Preemptive reconnection to avoid server timeout");
+        this.reconnect();
+      }, 14000);
     });
 
     this.ws.on("message", (data: WebSocket.Data) => {
@@ -57,17 +65,25 @@ class ExtendedWebSocketTest {
         `[${timestamp}] Connection closed - Code: ${code}, Reason: "${reason.toString()}"`
       );
 
-      // Clear ping interval
+      // Clear intervals
       if (this.pingInterval) {
         clearInterval(this.pingInterval);
         this.pingInterval = null;
       }
+      if (this.reconnectInterval) {
+        clearInterval(this.reconnectInterval);
+        this.reconnectInterval = null;
+      }
 
-      // Simple reconnection logic
-      setTimeout(() => {
-        console.log("Attempting to reconnect...");
-        this.connect();
-      }, 5000);
+      // Only reconnect if this wasn't a planned reconnection
+      if (!this.isReconnecting) {
+        setTimeout(() => {
+          console.log("Attempting to reconnect after unexpected close...");
+          this.connect();
+        }, 5000);
+      } else {
+        this.isReconnecting = false;
+      }
     });
 
     this.ws.on("error", (error: Error) => {
@@ -107,6 +123,29 @@ class ExtendedWebSocketTest {
     }
   }
 
+  reconnect(): void {
+    this.isReconnecting = true;
+    
+    // Clear existing intervals
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
+    if (this.reconnectInterval) {
+      clearInterval(this.reconnectInterval);
+      this.reconnectInterval = null;
+    }
+
+    // Close existing connection
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+
+    // Reconnect immediately
+    this.connect();
+  }
+
   disconnect(): void {
     if (this.ws) {
       console.log("Disconnecting from WebSocket...");
@@ -114,10 +153,14 @@ class ExtendedWebSocketTest {
       this.ws = null;
     }
 
-    // Clear ping interval
+    // Clear intervals
     if (this.pingInterval) {
       clearInterval(this.pingInterval);
       this.pingInterval = null;
+    }
+    if (this.reconnectInterval) {
+      clearInterval(this.reconnectInterval);
+      this.reconnectInterval = null;
     }
   }
 }
