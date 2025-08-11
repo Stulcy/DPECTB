@@ -6,15 +6,16 @@ export interface WsLevel {
 
 export interface OrderbookData {
   symbol: string;
-  bids: WsLevel[];
-  asks: WsLevel[];
+  bestBid: number;
+  bestAsk: number;
+  fundingRate: number;
   timestamp: number;
 }
 
 export interface FundingData {
   symbol: string;
-  fundingRate: string;
-  apy: string;
+  fundingRate: number;
+  apy: number;
   nextFundingMinutes: number;
   nextFundingSeconds: number;
   timestamp: number;
@@ -22,7 +23,7 @@ export interface FundingData {
 
 export type MarketData = OrderbookData | FundingData;
 
-export type DataType = 'orderbook' | 'funding';
+export type DataType = "orderbook" | "funding";
 
 export interface DataProvider {
   connect(): Promise<void>;

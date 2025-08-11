@@ -7,22 +7,18 @@ import {
   WsLevel,
 } from "../../core/interfaces";
 import { DataBus } from "../../core/data-bus";
-import {
-  ExtendedWebSocketMessage,
-  ExtendedMarketsResponse,
-  ExtendedSubscriptionMessage,
-} from "./types";
 
 export class ExtendedProvider implements DataProvider {
   public readonly name = "extended";
   private ws: WebSocket | null = null;
-  private readonly wsBaseUrl = "wss://api.extended.exchange/stream.extended.exchange/v1";
+  private currentSymbol: string | null = null;
+  private readonly wsBaseUrl =
+    "wss://api.extended.exchange/stream.extended.exchange/v1";
   private readonly apiUrl = "https://api.extended.exchange";
   private dataBus: DataBus;
   private subscriptions: Map<string, Set<DataType>> = new Map();
   private fundingCache: Map<string, FundingData> = new Map();
   private fundingIntervals: Map<string, NodeJS.Timeout> = new Map();
-  private currentSymbol: string | null = null;
 
   constructor(dataBus: DataBus) {
     this.dataBus = dataBus;
@@ -43,7 +39,7 @@ export class ExtendedProvider implements DataProvider {
       };
 
       // Try market-specific URL
-      const wsUrl = `${this.wsBaseUrl}/orderbooks/${symbol}`;
+      const wsUrl = `${this.wsBaseUrl}/orderbooks/${symbol}?depth=1`;
       this.ws = new WebSocket(wsUrl, { headers });
 
       this.ws.on("open", () => {
@@ -55,12 +51,38 @@ export class ExtendedProvider implements DataProvider {
         this.handleMessage(data);
       });
 
-      this.ws.on("close", (e) => {
-        console.log(e);
-        console.log("Extended WebSocket connection closed");
+      this.ws.on("ping", (data: Buffer) => {
+        const timestamp = new Date().toLocaleTimeString();
+        console.log(`[${timestamp}] Extended: Received ping, sending pong frame`, data.length ? `(${data.length} bytes)` : "(empty)");
+        console.log(`[${timestamp}] Extended: Ping data:`, data.toString());
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          // Send standard WebSocket pong frame
+          this.ws.pong(data);
+          console.log(`[${timestamp}] Extended: Sent pong frame with same data`);
+        } else {
+          console.log(`[${timestamp}] Extended: Cannot send pong - WebSocket not open`);
+        }
+      });
+
+      this.ws.on("pong", (data: Buffer) => {
+        console.log("Extended: Received pong response");
+      });
+
+      this.ws.on("close", (code, reason) => {
+        const timestamp = new Date().toLocaleTimeString();
+        console.log(`[${timestamp}] Extended WebSocket connection closed - Code: ${code}, Reason: "${reason.toString()}"`);
+        if (code === 1000) {
+          console.log("Normal close");
+        } else if (code === 1006) {
+          console.log("Abnormal close (likely server-side timeout or network issue)");
+        } else {
+          console.log(`Close code ${code} - see WebSocket close codes for meaning`);
+        }
         setTimeout(() => {
           console.log("Reconnecting to Extended...");
-          this.connect();
+          if (this.currentSymbol) {
+            this.connectToMarket(this.currentSymbol);
+          }
         }, 5000);
       });
 
@@ -118,8 +140,8 @@ export class ExtendedProvider implements DataProvider {
 
   private async subscribeToOrderbook(symbol: string): Promise<void> {
     try {
-      await this.connectToMarket(symbol);
       this.currentSymbol = symbol;
+      await this.connectToMarket(symbol);
       console.log(`Extended: Connected to ${symbol} orderbook stream`);
     } catch (error) {
       console.error(`Failed to connect to Extended ${symbol} stream:`, error);
@@ -158,40 +180,51 @@ export class ExtendedProvider implements DataProvider {
 
   private handleMessage(data: WebSocket.Data): void {
     const message = data.toString();
+    const timestamp = new Date().toLocaleTimeString();
+    
+    console.log(`[${timestamp}] Extended: Received message`);
+
+    // Check if this is a ping message that needs a pong response
+    if (message.startsWith('[ping ') && message.endsWith(' ping]')) {
+      console.log("Extended: Received ping message (not ping frame), sending pong response");
+      const pongMessage = message.replace('[ping ', '[pong ').replace(' ping]', ' pong]');
+      console.log("Extended: Sending pong message:", pongMessage);
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.ws.send(pongMessage);
+      }
+      return;
+    }
 
     try {
       const parsed = JSON.parse(message);
 
       if (parsed.data && parsed.data.b && parsed.data.a) {
+        console.log(`[${timestamp}] Extended: Processing orderbook data`);
         this.handleOrderbookMessage(parsed);
       } else {
-        console.log(message);
+        console.log(`[${timestamp}] Extended unknown message format:`, message);
       }
     } catch (error) {
-      console.log(message);
+      console.log(`[${timestamp}] Extended JSON parse error:`, message);
     }
   }
 
   private handleOrderbookMessage(parsed: any): void {
     const { data } = parsed;
 
-    // Convert Extended format to our standard format
-    const bids: WsLevel[] = data.b.map((bid: { p: string; q: string }) => ({
-      px: bid.p,
-      sz: bid.q,
-      n: 1, // Extended doesn't provide order count
-    }));
+    // Extract best bid and ask prices
+    const bestBid = parseFloat(data.b[0]?.p || "0");
+    const bestAsk = parseFloat(data.a[0]?.p || "0");
 
-    const asks: WsLevel[] = data.a.map((ask: { p: string; q: string }) => ({
-      px: ask.p,
-      sz: ask.q,
-      n: 1,
-    }));
+    // Get funding rate from cache
+    const fundingData = this.fundingCache.get(data.m);
+    const fundingRate = fundingData?.fundingRate || 0;
 
     const orderbookData: OrderbookData = {
       symbol: data.m,
-      bids,
-      asks,
+      bestBid,
+      bestAsk,
+      fundingRate,
       timestamp: parsed.ts || Date.now(),
     };
 
@@ -230,11 +263,11 @@ export class ExtendedProvider implements DataProvider {
           const fundingRate = parseFloat(
             marketData.marketStats.fundingRate || "0"
           );
-          const apy = (fundingRate * 24 * 365 * 100).toFixed(2);
+          const apy = fundingRate * 24 * 365 * 100;
           console.log(
             `${symbol} Funding Rate: ${
               marketData.marketStats.fundingRate || "N/A"
-            } (${apy}% APY)`
+            } (${apy.toFixed(2)}% APY)`
           );
 
           const now = new Date();
@@ -256,8 +289,8 @@ export class ExtendedProvider implements DataProvider {
 
           const fundingDataObj: FundingData = {
             symbol,
-            fundingRate: marketData.marketStats.fundingRate || "0",
-            apy,
+            fundingRate: parseFloat(marketData.marketStats.fundingRate || "0"),
+            apy: fundingRate * 24 * 365 * 100,
             nextFundingMinutes: minutesUntilFunding,
             nextFundingSeconds: secondsUntilFunding,
             timestamp: Date.now(),

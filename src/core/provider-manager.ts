@@ -1,13 +1,16 @@
 import { DataProvider, Config } from "./interfaces";
 import { DataBus } from "./data-bus";
+import { MarketDataStore } from "./market-data-store";
 
 export class ProviderManager {
   public readonly dataBus: DataBus;
+  public readonly marketDataStore: MarketDataStore;
   private providers: Map<string, DataProvider> = new Map();
   private config: Config;
 
   constructor(config: Config) {
     this.dataBus = new DataBus();
+    this.marketDataStore = new MarketDataStore(this.dataBus);
     this.config = config;
   }
 

@@ -1,13 +1,13 @@
 {
   "providers": {
     "hyperliquid": {
-      "enabled": false,
-      "symbols": ["BNB", "SUI", "ETH", "SOL"],
+      "enabled": true,
+      "symbols": ["BNB", "SUI", "BTC"],
       "dataTypes": ["orderbook", "funding"]
     },
     "extended": {
-      "enabled": true,
-      "symbols": ["BTC-USD", "BNB-USD"],
+      "enabled": false,
+      "symbols": ["BNB-USD"],
       "dataTypes": ["orderbook", "funding"]
     }
   }

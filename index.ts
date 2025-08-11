@@ -89,7 +89,7 @@ class HyperliquidWebSocket {
     const subscriptionMessage: SubscriptionMessage = {
       method: "subscribe",
       subscription: {
-        type: "l2Book", // can also do "bbo" if we only need the tightest spread (even faster updates)
+        type: "bbo", // can also do "bbo" if we only need the tightest spread (even faster updates)
         coin: "BNB",
       },
     };

@@ -5,3 +5,16 @@ export interface SubscriptionMessage {
     coin: string;
   };
 }
+
+export interface HyperliquidBboResponse {
+  channel: string;
+  data: {
+    coin: string;
+    time: number;
+    bbo: Array<{
+      px: string;
+      sz: string;
+      n: number;
+    }>;
+  };
+}

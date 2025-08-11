@@ -1,0 +1,1 @@
+Extended server keep on falling down because it is not happy with how I respond to ping or something. It works for 15s then stops sending traffic. Keep set to false until resolved.

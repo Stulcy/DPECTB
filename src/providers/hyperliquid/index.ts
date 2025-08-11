@@ -36,15 +36,15 @@ export class HyperliquidProvider implements DataProvider {
       });
 
       this.ws.on("close", () => {
-        console.log("WebSocket connection closed");
+        console.log("Hyperliquid WebSocket connection closed");
         setTimeout(() => {
-          console.log("Reconnecting...");
+          console.log("Reconnecting to Hyperliquid ...");
           this.connect();
         }, 5000);
       });
 
       this.ws.on("error", (error) => {
-        console.error("WebSocket error:", error);
+        console.error("Hyperliquid WebSocket error:", error);
         reject(error);
       });
     });
@@ -104,13 +104,13 @@ export class HyperliquidProvider implements DataProvider {
     const subscriptionMessage: SubscriptionMessage = {
       method: "subscribe",
       subscription: {
-        type: "l2Book",
+        type: "bbo",
         coin: symbol,
       },
     };
 
     this.ws!.send(JSON.stringify(subscriptionMessage));
-    console.log(`Sent subscription request for ${symbol} orderbook`);
+    console.log(`Sent subscription request for ${symbol} bbo`);
   }
 
   private async startFundingPolling(symbol: string): Promise<void> {
@@ -149,7 +149,7 @@ export class HyperliquidProvider implements DataProvider {
     try {
       const parsed = JSON.parse(message);
 
-      if (parsed.data && parsed.data.levels) {
+      if (parsed.data && parsed.data.bbo) {
         this.handleOrderbookMessage(parsed);
       }
     } catch (error) {
@@ -158,13 +158,22 @@ export class HyperliquidProvider implements DataProvider {
   }
 
   private handleOrderbookMessage(parsed: any): void {
-    const [bids, asks] = parsed.data.levels;
+    const { data } = parsed;
+
+    // Extract best bid and ask prices from bbo format
+    const bestBid = parseFloat(data.bbo[0]?.px || "0");
+    const bestAsk = parseFloat(data.bbo[1]?.px || "0");
+
+    // Get funding rate from cache
+    const fundingData = this.fundingCache.get(data.coin);
+    const fundingRate = fundingData?.fundingRate || 0;
 
     const orderbookData: OrderbookData = {
-      symbol: parsed.data.coin || "UNKNOWN",
-      bids,
-      asks,
-      timestamp: Date.now(),
+      symbol: data.coin || "UNKNOWN",
+      bestBid,
+      bestAsk,
+      fundingRate,
+      timestamp: data.time || Date.now(),
     };
 
     this.dataBus.emitOrderbook(orderbookData);
@@ -195,9 +204,11 @@ export class HyperliquidProvider implements DataProvider {
 
         console.log(`\n[${timestamp}] - Funding API Call`);
         const fundingRate = parseFloat(ctx.funding || "0");
-        const apy = (fundingRate * 24 * 365 * 100).toFixed(2);
+        const apy = fundingRate * 24 * 365 * 100;
         console.log(
-          `${symbol} Funding Rate: ${ctx.funding || "N/A"} (${apy}% APY)`
+          `${symbol} Funding Rate: ${ctx.funding || "N/A"} (${apy.toFixed(
+            2
+          )}% APY)`
         );
 
         const now = new Date();
@@ -213,8 +224,8 @@ export class HyperliquidProvider implements DataProvider {
 
         const fundingData: FundingData = {
           symbol,
-          fundingRate: ctx.funding || "0",
-          apy,
+          fundingRate: parseFloat(ctx.funding || "0"),
+          apy: fundingRate * 24 * 365 * 100,
           nextFundingMinutes: minutesUntilFunding,
           nextFundingSeconds: secondsUntilFunding,
           timestamp: Date.now(),

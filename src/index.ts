@@ -19,40 +19,48 @@ async function main() {
     const extendedProvider = new ExtendedProvider(manager.dataBus);
     manager.registerProvider(extendedProvider);
 
-    manager.dataBus.onOrderbook((data) => {
-      const timestamp = new Date().toLocaleTimeString();
-
-      // Calculate bid stats
-      const bidPrices = data.bids.map((bid) => parseFloat(bid.px));
-      const bidVolumes = data.bids.map((bid) => parseFloat(bid.sz));
-      const totalBidVolume = bidVolumes.reduce((sum, vol) => sum + vol, 0);
-      const bidRange = bidPrices.length > 0 
-        ? `${Math.min(...bidPrices).toFixed(2)} - ${Math.max(...bidPrices).toFixed(2)}`
-        : "N/A";
-
-      // Calculate ask stats
-      const askPrices = data.asks.map((ask) => parseFloat(ask.px));
-      const askVolumes = data.asks.map((ask) => parseFloat(ask.sz));
-      const totalAskVolume = askVolumes.reduce((sum, vol) => sum + vol, 0);
-      const askRange = askPrices.length > 0
-        ? `${Math.min(...askPrices).toFixed(2)} - ${Math.max(...askPrices).toFixed(2)}`
-        : "N/A";
-
+    manager.dataBus.onOrderbook((_) => {
+      // Print entire MarketDataStore
+      console.log(`\n📊 COMPLETE MARKET DATA STORE:`);
+      const providers = manager.marketDataStore.getProviders();
+      const symbols = manager.marketDataStore.getSymbols();
       console.log(
-        `\n┌─ ${data.symbol} ORDERBOOK ─ ${timestamp} ─────────────────────────────────┐`
+        `├─ Total Providers: ${providers.length} | Total Symbols: ${symbols.length}`
       );
+      for (const provider of providers) {
+        console.log(`├─ ${provider.toUpperCase()}:`);
+        for (const symbol of symbols) {
+          const allData = manager.marketDataStore.getAllData(symbol);
+          const providerData = allData.get(provider);
+          if (providerData) {
+            const lastUpdated = new Date(
+              providerData.lastUpdated
+            ).toLocaleTimeString();
+            console.log(`│  ├─ ${symbol}:`);
+            if (providerData.orderbook) {
+              const ob = providerData.orderbook;
+              const spread = ob.bestAsk - ob.bestBid;
+              const spreadPercent = ((spread / ob.bestBid) * 100).toFixed(4);
+              console.log(
+                `│  │  ├─ ORDERBOOK: BID $${ob.bestBid.toFixed(
+                  2
+                )} | ASK $${ob.bestAsk.toFixed(2)} | SPREAD ${spreadPercent}%`
+              );
+            }
+            if (providerData.funding) {
+              const funding = providerData.funding;
+              console.log(
+                `│  │  ├─ FUNDING: ${(funding.fundingRate * 100).toFixed(
+                  4
+                )}% (${funding.apy.toFixed(2)}% APY)`
+              );
+            }
+            console.log(`│  │  └─ UPDATED: ${lastUpdated}`);
+          }
+        }
+      }
       console.log(
-        `│ BIDS: $${bidRange} │ Volume: ${totalBidVolume
-          .toFixed(2)
-          .padStart(10)} │`
-      );
-      console.log(
-        `│ ASKS: $${askRange} │ Volume: ${totalAskVolume
-          .toFixed(2)
-          .padStart(10)} │`
-      );
-      console.log(
-        `└──────────────────────────────────────────────────────────────┘`
+        `└─────────────────────────────────────────────────────────────────────`
       );
     });
 
