@@ -1,5 +1,6 @@
 import { ProviderManager } from "./core/provider-manager";
 import { HyperliquidProvider } from "./providers/hyperliquid";
+import { ExtendedProvider } from "./providers/extended";
 import { Config } from "./core/interfaces";
 import * as fs from "fs";
 import * as path from "path";
@@ -15,6 +16,9 @@ async function main() {
     const hyperliquidProvider = new HyperliquidProvider(manager.dataBus);
     manager.registerProvider(hyperliquidProvider);
 
+    const extendedProvider = new ExtendedProvider(manager.dataBus);
+    manager.registerProvider(extendedProvider);
+
     manager.dataBus.onOrderbook((data) => {
       const timestamp = new Date().toLocaleTimeString();
 
@@ -22,17 +26,17 @@ async function main() {
       const bidPrices = data.bids.map((bid) => parseFloat(bid.px));
       const bidVolumes = data.bids.map((bid) => parseFloat(bid.sz));
       const totalBidVolume = bidVolumes.reduce((sum, vol) => sum + vol, 0);
-      const bidRange = `${Math.min(...bidPrices).toFixed(2)} - ${Math.max(
-        ...bidPrices
-      ).toFixed(2)}`;
+      const bidRange = bidPrices.length > 0 
+        ? `${Math.min(...bidPrices).toFixed(2)} - ${Math.max(...bidPrices).toFixed(2)}`
+        : "N/A";
 
       // Calculate ask stats
       const askPrices = data.asks.map((ask) => parseFloat(ask.px));
       const askVolumes = data.asks.map((ask) => parseFloat(ask.sz));
       const totalAskVolume = askVolumes.reduce((sum, vol) => sum + vol, 0);
-      const askRange = `${Math.min(...askPrices).toFixed(2)} - ${Math.max(
-        ...askPrices
-      ).toFixed(2)}`;
+      const askRange = askPrices.length > 0
+        ? `${Math.min(...askPrices).toFixed(2)} - ${Math.max(...askPrices).toFixed(2)}`
+        : "N/A";
 
       console.log(
         `\n┌─ ${data.symbol} ORDERBOOK ─ ${timestamp} ─────────────────────────────────┐`
