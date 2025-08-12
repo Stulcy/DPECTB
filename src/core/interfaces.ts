@@ -38,6 +38,7 @@ export interface ProviderConfig {
   enabled: boolean;
   symbols: string[];
   dataTypes: DataType[];
+  fees: [number, number]; // [makerFee, takerFee]
 }
 
 export interface Config {

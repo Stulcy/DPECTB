@@ -10,6 +10,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "decimal.js": "^10.6.0",
     "ws": "^8.18.3"
   }
 }

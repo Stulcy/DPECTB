@@ -3,12 +3,14 @@
     "hyperliquid": {
       "enabled": true,
       "symbols": ["SUI", "BNB", "BTC", "ETH"],
-      "dataTypes": ["orderbook", "funding"]
+      "dataTypes": ["orderbook", "funding"],
+      "fees": [0, 0.025]
     },
     "extended": {
       "enabled": true,
       "symbols": ["SUI-USD", "BNB-USD", "BTC-USD", "ETH-USD"],
-      "dataTypes": ["orderbook", "funding"]
+      "dataTypes": ["orderbook", "funding"],
+      "fees": [0.015, 0.045]
     }
   }
 }

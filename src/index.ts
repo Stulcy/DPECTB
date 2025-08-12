@@ -2,6 +2,8 @@ import { ProviderManager } from "./core/provider-manager";
 import { HyperliquidProvider } from "./providers/hyperliquid";
 import { ExtendedProvider } from "./providers/extended";
 import { Config } from "./core/interfaces";
+import { processMarketData } from "./calculations";
+import { printMarketDataStore } from "./printing";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -27,48 +29,8 @@ async function main() {
 
     // Print market data every 10 seconds
     const printInterval = setInterval(() => {
-      // Print entire MarketDataStore
-      console.log(`\n📊 COMPLETE MARKET DATA STORE:`);
-      const providers = manager.marketDataStore.getProviders();
-      const symbols = manager.marketDataStore.getSymbols();
-      console.log(
-        `├─ Total Providers: ${providers.length} | Total Symbols: ${symbols.length}`
-      );
-      for (const provider of providers) {
-        console.log(`├─ ${provider.toUpperCase()}:`);
-        for (const symbol of symbols) {
-          const allData = manager.marketDataStore.getAllData(symbol);
-          const providerData = allData.get(provider);
-          if (providerData) {
-            const lastUpdated = new Date(
-              providerData.lastUpdated
-            ).toLocaleTimeString();
-            console.log(`│  ├─ ${symbol}:`);
-            if (providerData.orderbook) {
-              const ob = providerData.orderbook;
-              const spread = ob.bestAsk - ob.bestBid;
-              const spreadPercent = ((spread / ob.bestBid) * 100).toFixed(4);
-              console.log(
-                `│  │  ├─ ORDERBOOK: BID $${ob.bestBid.toFixed(
-                  2
-                )} | ASK $${ob.bestAsk.toFixed(2)} | SPREAD ${spreadPercent}%`
-              );
-            }
-            if (providerData.funding) {
-              const funding = providerData.funding;
-              console.log(
-                `│  │  ├─ FUNDING: ${(funding.fundingRate * 100).toFixed(
-                  4
-                )}% (${funding.apy.toFixed(2)}% APY)`
-              );
-            }
-            console.log(`│  │  └─ UPDATED: ${lastUpdated}`);
-          }
-        }
-      }
-      console.log(
-        `└─────────────────────────────────────────────────────────────────────`
-      );
+      processMarketData(manager.marketDataStore, config);
+      // printMarketDataStore(manager.marketDataStore);
     }, 10000);
 
     process.on("SIGINT", async () => {
