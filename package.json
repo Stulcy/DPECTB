@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node --import=tsx src/bot.ts",
     "dev": "bun run src/bot.ts",
-    "build": "tsc && node dist/bot.js"
+    "build": "tsc"
   },
   "devDependencies": {
     "@types/ws": "^8.18.1",
