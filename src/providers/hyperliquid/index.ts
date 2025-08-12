@@ -113,25 +113,12 @@ export class HyperliquidProvider implements DataProvider {
     // Fetch immediately
     await this.fetchAssetContext(symbol);
 
-    // Calculate ms until next whole hour
-    const now = new Date();
-    const nextHour = new Date(now);
-    nextHour.setMinutes(0, 0, 0);
-    nextHour.setHours(nextHour.getHours() + 1);
-    const msUntilNextHour = nextHour.getTime() - now.getTime();
-
-    // Set timeout for first hourly update, then interval
-    setTimeout(() => {
+    // Set 5-second interval
+    const interval = setInterval(() => {
       this.fetchAssetContext(symbol);
+    }, 5000); // Every 5 seconds
 
-      // Set hourly interval
-      const interval = setInterval(() => {
-        this.fetchAssetContext(symbol);
-      }, 60 * 60 * 1000); // Every hour
-
-      this.fundingIntervals.set(symbol, interval);
-    }, msUntilNextHour);
-
+    this.fundingIntervals.set(symbol, interval);
   }
 
   private handleMessage(data: WebSocket.Data): void {
@@ -143,8 +130,7 @@ export class HyperliquidProvider implements DataProvider {
       if (parsed.data && parsed.data.bbo) {
         this.handleOrderbookMessage(parsed);
       }
-    } catch (error) {
-    }
+    } catch (error) {}
   }
 
   private handleOrderbookMessage(parsed: any): void {

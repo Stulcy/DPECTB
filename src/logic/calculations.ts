@@ -1,11 +1,14 @@
-import { MarketDataStore } from "./core/market-data-store";
-import { Config } from "./core/interfaces";
+import { MarketDataStore } from "../core/market-data-store";
+import { Config } from "../core/interfaces";
 import { Decimal } from "decimal.js";
 
 export function processMarketData(
   marketDataStore: MarketDataStore,
   config: Config
 ): void {
+  const now = new Date();
+  console.log(`--- ${now.toLocaleString()} ---`);
+
   const symbols = marketDataStore.getSymbols();
 
   for (const symbol of symbols) {
@@ -101,4 +104,5 @@ export function processMarketData(
       }
     }
   }
+  console.log();
 }

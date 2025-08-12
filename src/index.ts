@@ -2,8 +2,7 @@ import { ProviderManager } from "./core/provider-manager";
 import { HyperliquidProvider } from "./providers/hyperliquid";
 import { ExtendedProvider } from "./providers/extended";
 import { Config } from "./core/interfaces";
-import { processMarketData } from "./calculations";
-import { printMarketDataStore } from "./printing";
+import { processMarketData } from "./logic/calculations";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -31,7 +30,7 @@ async function main() {
     const printInterval = setInterval(() => {
       processMarketData(manager.marketDataStore, config);
       // printMarketDataStore(manager.marketDataStore);
-    }, 10000);
+    }, 5000);
 
     process.on("SIGINT", async () => {
       clearInterval(printInterval);

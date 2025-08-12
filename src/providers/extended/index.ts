@@ -43,7 +43,6 @@ export class ExtendedProvider implements DataProvider {
       this.wsConnections.set(symbol, ws);
 
       ws.on("open", () => {
-
         // Preemptive reconnection every 14 seconds to avoid 15s timeout
         const reconnectInterval = setInterval(() => {
           this.reconnectSymbol(symbol);
@@ -58,7 +57,6 @@ export class ExtendedProvider implements DataProvider {
       });
 
       ws.on("close", (code: number, reason: Buffer) => {
-
         const reconnectInterval = this.reconnectIntervals.get(symbol);
         if (reconnectInterval) {
           clearInterval(reconnectInterval);
@@ -195,25 +193,12 @@ export class ExtendedProvider implements DataProvider {
     // Fetch immediately
     await this.fetchFundingRate(symbol);
 
-    // Calculate ms until next whole hour
-    const now = new Date();
-    const nextHour = new Date(now);
-    nextHour.setMinutes(0, 0, 0);
-    nextHour.setHours(nextHour.getHours() + 1);
-    const msUntilNextHour = nextHour.getTime() - now.getTime();
-
-    // Set timeout for first hourly update, then interval
-    setTimeout(() => {
+    // Set 5-second interval
+    const interval = setInterval(() => {
       this.fetchFundingRate(symbol);
+    }, 5000); // Every 5 seconds
 
-      // Set hourly interval
-      const interval = setInterval(() => {
-        this.fetchFundingRate(symbol);
-      }, 60 * 60 * 1000); // Every hour
-
-      this.fundingIntervals.set(symbol, interval);
-    }, msUntilNextHour);
-
+    this.fundingIntervals.set(symbol, interval);
   }
 
   private handleMessage(data: WebSocket.Data, symbol: string): void {
@@ -226,8 +211,7 @@ export class ExtendedProvider implements DataProvider {
         this.handleOrderbookMessage(parsed);
       } else {
       }
-    } catch (error) {
-    }
+    } catch (error) {}
   }
 
   private handleOrderbookMessage(parsed: any): void {
@@ -297,7 +281,6 @@ export class ExtendedProvider implements DataProvider {
           const secondsUntilFunding = Math.floor(
             (timeUntilFunding % (1000 * 60)) / 1000
           );
-
 
           const fundingDataObj: FundingData = {
             symbol,
