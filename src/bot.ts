@@ -6,6 +6,9 @@ import { ExtendedProvider } from "./providers/extended";
 import { Config } from "./core/interfaces";
 import * as fs from "fs";
 import * as path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config();
 
 const clientToken = process.env.CLIENT_TOKEN;
