@@ -3,14 +3,14 @@
   "module": "src/index.ts",
   "type": "module",
   "scripts": {
-    "start": "node --loader ts-node/esm src/bot.ts",
+    "start": "node --import=tsx src/bot.ts",
     "dev": "bun run src/bot.ts",
-    "build": "tsc"
+    "build": "tsc && node dist/bot.js"
   },
   "devDependencies": {
     "@types/ws": "^8.18.1",
     "bun-types": "latest",
-    "ts-node": "^10.9.0",
+    "tsx": "^4.0.0",
     "typescript": "^5.0.0"
   },
   "dependencies": {
