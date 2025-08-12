@@ -3,18 +3,13 @@
   "module": "src/index.ts",
   "type": "module",
   "scripts": {
-    "start": "node --loader ts-node/esm src/bot.ts",
+    "start": "bun run src/bot.ts",
     "dev": "bun run src/bot.ts",
-    "build": "tsc"
+    "build": "bun build src/bot.ts --outdir ./dist"
   },
   "devDependencies": {
     "@types/ws": "^8.18.1",
-    "bun-types": "latest",
-    "ts-node": "^10.9.0",
-    "typescript": "^5.0.0"
-  },
-  "peerDependencies": {
-    "typescript": "^5.0.0"
+    "bun-types": "latest"
   },
   "dependencies": {
     "decimal.js": "^10.6.0",
