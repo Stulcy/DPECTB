@@ -141,8 +141,8 @@ client
   .once("ready", async () => {
     try {
       const user = await client.users.fetch(process.env.USER_ID as string);
-      await user.send("Let's gremo!");
-      console.log("DM sent");
+      // await user.send("Let's gremo!");
+      // console.log("DM sent");
 
       // Initialize trading system
       const configPath = path.join(__dirname, "config", "providers.json");

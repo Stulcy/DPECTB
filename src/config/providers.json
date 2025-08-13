@@ -4,13 +4,13 @@
       "enabled": true,
       "symbols": ["SUI", "BNB", "BTC", "ETH"],
       "dataTypes": ["orderbook", "funding"],
-      "fees": [0, 0.025]
+      "fees": [0, 0.045]
     },
     "extended": {
       "enabled": true,
       "symbols": ["SUI-USD", "BNB-USD", "BTC-USD", "ETH-USD"],
       "dataTypes": ["orderbook", "funding"],
-      "fees": [0.015, 0.045]
+      "fees": [0.015, 0.0225]
     }
   }
 }
