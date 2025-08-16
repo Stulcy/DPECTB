@@ -11,12 +11,12 @@ export class ExtendedProvider implements DataProvider {
   public readonly name = "extended";
   private wsConnections: Map<string, WebSocket> = new Map();
   private readonly wsBaseUrl =
-    "wss://api.extended.exchange/stream.extended.exchange/v1";
-  private readonly apiUrl = "https://api.extended.exchange";
+    "wss://api.starknet.extended.exchange/stream.extended.exchange/v1";
+  private readonly apiUrl = "https://api.starknet.extended.exchange";
   private dataBus: DataBus;
   private subscriptions: Map<string, Set<DataType>> = new Map();
   private fundingCache: Map<string, FundingData> = new Map();
-  private fundingIntervals: Map<string, NodeJS.Timeout> = new Map();
+  private fundingInterval: NodeJS.Timeout | null = null;
   private reconnectIntervals: Map<string, NodeJS.Timeout> = new Map();
   private reconnectingSymbols: Set<string> = new Set();
 
@@ -108,11 +108,11 @@ export class ExtendedProvider implements DataProvider {
   }
 
   async disconnect(): Promise<void> {
-    // Clear all funding intervals
-    for (const interval of this.fundingIntervals.values()) {
-      clearInterval(interval);
+    // Clear funding interval
+    if (this.fundingInterval) {
+      clearInterval(this.fundingInterval);
+      this.fundingInterval = null;
     }
-    this.fundingIntervals.clear();
 
     for (const interval of this.reconnectIntervals.values()) {
       clearInterval(interval);
@@ -132,7 +132,7 @@ export class ExtendedProvider implements DataProvider {
 
     // Process funding first (if requested)
     if (dataTypes.includes("funding")) {
-      await this.startFundingPolling(symbol);
+      await this.startFundingPolling();
     }
 
     // Then start orderbook WebSocket
@@ -144,11 +144,14 @@ export class ExtendedProvider implements DataProvider {
   unsubscribe(symbol: string): void {
     this.subscriptions.delete(symbol);
 
-    // Clear funding interval for this symbol
-    const fundingInterval = this.fundingIntervals.get(symbol);
-    if (fundingInterval) {
-      clearInterval(fundingInterval);
-      this.fundingIntervals.delete(symbol);
+    // Check if we need to stop funding polling entirely
+    const hasFundingSubscriptions = Array.from(this.subscriptions.values()).some(
+      dataTypes => dataTypes.has("funding")
+    );
+    
+    if (!hasFundingSubscriptions && this.fundingInterval) {
+      clearInterval(this.fundingInterval);
+      this.fundingInterval = null;
     }
 
     const reconnectInterval = this.reconnectIntervals.get(symbol);
@@ -189,16 +192,19 @@ export class ExtendedProvider implements DataProvider {
     }
   }
 
-  private async startFundingPolling(symbol: string): Promise<void> {
+  private async startFundingPolling(): Promise<void> {
+    // Only start if we don't already have a polling interval
+    if (this.fundingInterval) {
+      return;
+    }
+
     // Fetch immediately
-    await this.fetchFundingRate(symbol);
+    await this.fetchAllFundingRates();
 
     // Set 5-second interval
-    const interval = setInterval(() => {
-      this.fetchFundingRate(symbol);
+    this.fundingInterval = setInterval(() => {
+      this.fetchAllFundingRates();
     }, 5000); // Every 5 seconds
-
-    this.fundingIntervals.set(symbol, interval);
   }
 
   private handleMessage(data: WebSocket.Data, symbol: string): void {
@@ -236,10 +242,22 @@ export class ExtendedProvider implements DataProvider {
     this.dataBus.emitOrderbook(orderbookData);
   }
 
-  private async fetchFundingRate(symbol: string): Promise<void> {
+  private async fetchAllFundingRates(): Promise<void> {
     try {
+      // Get all symbols that have funding subscriptions
+      const fundingSymbols = Array.from(this.subscriptions.entries())
+        .filter(([_, dataTypes]) => dataTypes.has("funding"))
+        .map(([symbol, _]) => symbol);
+
+      if (fundingSymbols.length === 0) {
+        return;
+      }
+
+      // Build query string for multiple markets
+      const queryString = fundingSymbols.map(symbol => `market=${symbol}`).join('&');
+
       // Get current funding rate from markets endpoint
-      const response = await fetch(`${this.apiUrl}/api/v1/info/markets`, {
+      const response = await fetch(`${this.apiUrl}/api/v1/info/markets?${queryString}`, {
         headers: {
           "User-Agent": "DPECTB-Bot/1.0",
         },
@@ -247,7 +265,7 @@ export class ExtendedProvider implements DataProvider {
 
       if (!response.ok) {
         console.error(
-          `Extended API error for ${symbol}: ${response.status} ${response.statusText}`
+          `Extended API error: ${response.status} ${response.statusText}`
         );
         return;
       }
@@ -255,19 +273,11 @@ export class ExtendedProvider implements DataProvider {
       const responseText = await response.text();
       const responseData = JSON.parse(responseText);
 
-      if (responseData.status === "OK" && responseData.data.length > 0) {
-        // Find the specific market
-        const marketData = responseData.data.find(
-          (market: any) => market.name === symbol
-        );
-
-        if (marketData && marketData.marketStats) {
-          const timestamp = new Date().toLocaleString();
-
-          const fundingRate = parseFloat(
-            marketData.marketStats.fundingRate || "0"
-          );
-          const apy = fundingRate * 24 * 365 * 100;
+      if (responseData.status === "OK" && responseData.data && Array.isArray(responseData.data)) {
+        // Process each market in the response
+        for (const market of responseData.data) {
+          const symbol = market.name;
+          const fundingRate = parseFloat(market.marketStats?.fundingRate || "0");
 
           const now = new Date();
           const nextFundingTime = new Date(now);
@@ -275,16 +285,12 @@ export class ExtendedProvider implements DataProvider {
           nextFundingTime.setHours(nextFundingTime.getHours() + 1);
 
           const timeUntilFunding = nextFundingTime.getTime() - now.getTime();
-          const minutesUntilFunding = Math.floor(
-            timeUntilFunding / (1000 * 60)
-          );
-          const secondsUntilFunding = Math.floor(
-            (timeUntilFunding % (1000 * 60)) / 1000
-          );
+          const minutesUntilFunding = Math.floor(timeUntilFunding / (1000 * 60));
+          const secondsUntilFunding = Math.floor((timeUntilFunding % (1000 * 60)) / 1000);
 
           const fundingDataObj: FundingData = {
             symbol,
-            fundingRate: parseFloat(marketData.marketStats.fundingRate || "0"),
+            fundingRate,
             apy: fundingRate * 24 * 365 * 100,
             nextFundingMinutes: minutesUntilFunding,
             nextFundingSeconds: secondsUntilFunding,
@@ -296,15 +302,10 @@ export class ExtendedProvider implements DataProvider {
 
           // Emit to data bus
           this.dataBus.emitFunding(fundingDataObj);
-        } else {
         }
-      } else {
       }
     } catch (error) {
-      console.error(
-        `Error fetching Extended funding rate for ${symbol}:`,
-        error
-      );
+      console.error("Error fetching Extended funding rates:", error);
     }
   }
 }

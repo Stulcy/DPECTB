@@ -31,8 +31,8 @@ export function processMarketData(
           if (configA && configB) {
             // Taking just takerFee for now because we will probably be market buying
             // also it's safer to assume profitability
-            const [makerFeeA, takerFeeA] = configA.fees;
-            const [makerFeeB, takerFeeB] = configB.fees;
+            const [_, takerFeeA] = configA.fees;
+            const [__, takerFeeB] = configB.fees;
 
             // Calculate profit: Buy on A, Sell on B
             const buyPriceA = dataA.orderbook.bestAsk; // We buy at the ask price
@@ -52,22 +52,22 @@ export function processMarketData(
 
             // Log profitable opportunities
             if (profitAtoB >= 0.0001) {
-              console.log(
-                `🟢 PRICE ARBITRAGE: ${symbol} | Buy ${providerA} $${buyPriceA.toFixed(
-                  4
-                )} → Sell ${providerB} $${sellPriceB.toFixed(
-                  4
-                )} | Profit: $${profitAtoB.toFixed(4)} per ${symbol}`
-              );
+              // console.log(
+              //   `🟢 PRICE ARBITRAGE: ${symbol} | Buy ${providerA} $${buyPriceA.toFixed(
+              //     4
+              //   )} → Sell ${providerB} $${sellPriceB.toFixed(
+              //     4
+              //   )} | Profit: $${profitAtoB.toFixed(4)} per ${symbol}`
+              // );
             }
             if (profitBtoA >= 0.0001) {
-              console.log(
-                `🟢 PRICE ARBITRAGE: ${symbol} | Buy ${providerB} $${buyPriceB.toFixed(
-                  4
-                )} → Sell ${providerA} $${sellPriceA.toFixed(
-                  4
-                )} | Profit: $${profitBtoA.toFixed(4)} per ${symbol}`
-              );
+              // console.log(
+              //   `🟢 PRICE ARBITRAGE: ${symbol} | Buy ${providerB} $${buyPriceB.toFixed(
+              //     4
+              //   )} → Sell ${providerA} $${sellPriceA.toFixed(
+              //     4
+              //   )} | Profit: $${profitBtoA.toFixed(4)} per ${symbol}`
+              // );
             }
           }
         }
@@ -76,6 +76,23 @@ export function processMarketData(
         if (dataA?.funding && dataB?.funding) {
           const fundingRateA = new Decimal(dataA.funding.fundingRate);
           const fundingRateB = new Decimal(dataB.funding.fundingRate);
+
+          console.log(`📈 ${symbol} Funding Rates:`);
+          console.log(
+            `   ${providerA.toUpperCase().padEnd(12)}: ${fundingRateA
+              .mul(24)
+              .mul(365)
+              .mul(100)
+              .toFixed(2)}% APY`
+          );
+          console.log(
+            `   ${providerB.toUpperCase().padEnd(12)}: ${fundingRateB
+              .mul(24)
+              .mul(365)
+              .mul(100)
+              .toFixed(2)}% APY`
+          );
+
           const fundingDiff = fundingRateA.minus(fundingRateB);
           const annualizedDiff = fundingDiff.abs().mul(24).mul(365).mul(100); // Convert to APY %
 
@@ -89,16 +106,16 @@ export function processMarketData(
               ? fundingRateA
               : fundingRateB;
 
-            console.log(
-              `💰 FUNDING ARBITRAGE: ${symbol} | Long ${longExchange} (${higherRate
-                .mul(100)
-                .toFixed(4)}%) → Short ${shortExchange} (${lowerRate
-                .mul(100)
-                .toFixed(4)}%) | Diff: ${fundingDiff
-                .abs()
-                .mul(100)
-                .toFixed(4)}% | APY: ${annualizedDiff.toFixed(2)}%`
-            );
+            // console.log(
+            //   `💰 FUNDING ARBITRAGE: ${symbol} | Long ${longExchange} (${higherRate
+            //     .mul(100)
+            //     .toFixed(4)}%) → Short ${shortExchange} (${lowerRate
+            //     .mul(100)
+            //     .toFixed(4)}%) | Diff: ${fundingDiff
+            //     .abs()
+            //     .mul(100)
+            //     .toFixed(4)}% | APY: ${annualizedDiff.toFixed(2)}%`
+            // );
           }
         }
       }

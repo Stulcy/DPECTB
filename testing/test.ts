@@ -6,7 +6,7 @@ class ExtendedWebSocketTest {
   private reconnectInterval: NodeJS.Timeout | null = null;
   private isReconnecting: boolean = false;
   private readonly wsUrl =
-    "wss://api.extended.exchange/stream.extended.exchange/v1/orderbooks/BTC-USDC?depth=1";
+    "wss://api.starknet.extended.exchange/stream.extended.exchange/v1/orderbooks/BTC-USDC?depth=1";
 
   connect(): void {
     const headers = {
@@ -125,7 +125,7 @@ class ExtendedWebSocketTest {
 
   reconnect(): void {
     this.isReconnecting = true;
-    
+
     // Clear existing intervals
     if (this.pingInterval) {
       clearInterval(this.pingInterval);
